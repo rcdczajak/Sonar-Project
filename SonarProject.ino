@@ -1,118 +1,148 @@
 // Necessary Library Imports
 #include <Servo.h>
 
-// Local Declarations
+// Class handling the logic regarding the ultrasonic sensor
+class Sensor 
+{
+  public:
+    // Initializing data pins
+    const int trigPin;
+    const int echoPin;
+
+    // Constructor function to initialize trigger and echo pins
+    Sensor(int trigPin, int echoPin) : trigPin(trigPin), echoPin(echoPin) {}
+};
+
+// Class handling sonar logic and processing
+class Sonar 
+{
+  public:
+    // Function to calculate distance to target using the sensor
+    static long calculateDistance(const Sensor& sensor) 
+    {
+      // Set trigger pin to off
+      digitalWrite(sensor.trigPin, LOW);
+
+      // Delay for stability
+      delayMicroseconds(2);
+
+      // Turn on the trigger pin
+      digitalWrite(sensor.trigPin, HIGH);
+
+      // Let trigger pin sing for 10 microseconds
+      delayMicroseconds(10);
+
+      // Turn the trigger pin back off
+      digitalWrite(sensor.trigPin, LOW);
+
+      // Record the amount of time it took the echo pin to hear the trigger pins song
+      long duration = pulseIn(sensor.echoPin, HIGH);
+
+      // Return that trvel time
+      return duration;
+    }
+
+    // Function to convert microseconds to inches
+    static long microsecondsToInches(long microseconds) 
+    {
+        // Return distance to target in inches
+        return microseconds / 74 / 2;
+    }
+
+    // Function to convert microseconds to centimeters
+    static long microsecondsToCentimeters(long microseconds) 
+    {
+        // Return distance to target in centimeters
+        return microseconds / 29 / 2;
+    }
+};
+
+// Create a Servo object to control the servo motor
 Servo myservo;
+
+// Define trigger (transmition) and echo (receiver) pins on the ultrasonic sensor
 const int trigPin = 7;
 const int echoPin = 8;
-int pos = 0;
-long duration;
 
-// Initially Run Code Function
+// Initiate the sensor with the defined pins
+Sensor sensor(trigPin, echoPin);
+
+// Function that initiates upon program launch
 void setup() 
 {
-  // Open the serial port to write the sonar data to
-  Serial.begin (9600);
+    // Initialize serial moniter communication
+    Serial.begin(9600);
 
-  // Match the servo command wire to arduino pin 9
-  myservo.attach (9);
+    // Attach servo to arduino pin 9
+    myservo.attach(9);
 
-  // Initialize the trigger (transmitter) pin on the ultrasonic sonar sensor to be the input
-  pinMode (trigPin, OUTPUT);
+    // Set the trigger pin to be the output
+    pinMode(sensor.trigPin, OUTPUT);
 
-  // Initialize the echo (receiver) pin on the ultrasonic sonar sensor to be the output
-  pinMode (echoPin, INPUT);
+    // Set the echo pin to be the input
+    pinMode(sensor.echoPin, INPUT);
 }
 
-// Function that holds code that continuously repeats
+// Main function runs repeatedly
 void loop() 
 {
+    // Declare local variables
+    long duration, inches, cm;
 
-  // Local Variable declarations
-  long duration, inches, cm;
+    // Sweep the servo from 0 to 180 degrees counter-clockwise
+    // For each angle the the servo can move to
+    for (int pos = 0; pos <= 180; pos += 1) 
+    {
+        // Move the servo to that angle
+        myservo.write(pos);
 
-  // For each angle the servo can allign itself to, out of 180
-  for (pos = 0; pos <= 180; pos += 1)
-  {
-    // Tell the servo to move to the current positional data
-    myservo.write (pos);
+        // Allow time for servo to reach position
+        delay(30);
 
-    // Call functions to translate the signal duration from the sensor into an integer
-    duration = calculateDistance ( );
+        // Calculate distance of target using the sensor
+        duration = Sonar::calculateDistance(sensor);
 
-    // Calculate the distance to target in inches
-    inches = microsecondsToInches (duration);
+        // Convert the signal transmission time to inches
+        inches = Sonar::microsecondsToInches(duration);
 
-    // Calculate the distance to target in centimeters 
-    cm = microsecondsToCentimeters (duration);
+        // Convert the signal transmission time to centimeters
+        cm = Sonar::microsecondsToCentimeters(duration);
 
-    // Print the inches to target, centimeters to target, and potentiometer degree target was recorded at to the serial port
-    Serial.print(inches);
-    Serial.print("in, ");
-    Serial.print(cm);
-    Serial.print("cm, ");
-    Serial.print (pos);
-    Serial.print ("°");
-    Serial.println();
+        // Print:
+        // Inches to target,
+        Serial.print(inches);
+        Serial.print("in, ");
 
-    // Amount of time in between each servo angle rotation (in microseconds)
-    delay (30);
-  }
+        // Centimeters to target
+        Serial.print(cm);
+        Serial.print("cm, ");
 
-  // Repeat the previous logic in the other direction
-  for (pos = 180; pos >= 0; pos -= 1)
-  {
-    myservo.write (pos);
+        // Degree of the angle of which the recording was taken
+        Serial.print(pos);
+        Serial.print("°");
+        Serial.println();
+    }
 
-    duration = calculateDistance ( );
-    inches = microsecondsToInches (duration);
-    cm = microsecondsToCentimeters (duration);
+    // Repeat logic for sweeping the servo back to 0 degrees, clockwise
+    for (int pos = 180; pos >= 0; pos -= 1) 
+    {
+        myservo.write(pos);
+        delay(30);
+        duration = Sonar::calculateDistance(sensor);
+        inches = Sonar::microsecondsToInches(duration);
+        cm = Sonar::microsecondsToCentimeters(duration);
 
-    Serial.print(inches);
-    Serial.print("in, ");
-    Serial.print(cm);
-    Serial.print("cm, ");
-    Serial.print (pos);
-    Serial.print ("°");
-    Serial.println();
+        Serial.print(inches);
+        Serial.print("in, ");
+        Serial.print(cm);
+        Serial.print("cm, ");
+        Serial.print(pos);
+        Serial.print("°");
+        Serial.println();
+    }
 
-    delay (30);
-  }
-
-}
-
-// Function to convert the signal duration received from the sonar sensor into an integer to be used in further calculations
-int calculateDistance(){ 
-  
-  // Tell the trigger pin to wait without power
-  digitalWrite(trigPin, LOW); 
-  delayMicroseconds(2);
-
-  // Record the data the sensor receives while on high power for ten microseconds
-  digitalWrite(trigPin, HIGH); 
-  delayMicroseconds(10);
-
-  // Turn the sensor back off
-  digitalWrite(trigPin, LOW);
-
-  // Reads the echoPin, returns the signal wave travel time in microseconds
-  duration = pulseIn(echoPin, HIGH); 
-
-  // Returns signal travel time
-  return duration;
-}
-
-
-// Function to convert the signal travel time into inches
-long microsecondsToInches (long microseconds)
-{
-  // Return the distance to target in inches
-  return microseconds / 74 / 2;
-}
-
-// Function to convert the signal travel time to centimeters
-long microsecondsToCentimeters (long microseconds)
-{
-  // Return distance to target in centimeters
-  return microseconds / 29 / 2;
+    // Debug info
+    Serial.println("Completed one full sweep.");
+    // Small delay after a full sweep to observe behavior
+    delay(500); 
 }
